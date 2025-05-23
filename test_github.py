@@ -1,52 +1,68 @@
 import os
 import requests
+import time
 from dotenv import load_dotenv
-
+# Загружаем переменные окружения из .env
 load_dotenv()
 
-class GitHubRepoManager:
-    def __init__(self, user, token):
-        self.user = user
-        self.token = token
-        self.api_url = "https://api.github.com"
-        self.session = requests.Session()
-        self.session.auth = (self.user, self.token)
+GITHUB_API = "https://api.github.com"
+USER = os.getenv("GITHUB_USER")
+TOKEN = os.getenv("GITHUB_TOKEN")
+REPO = os.getenv("REPO_NAME")
 
-    def create_repo(self, repo_name, description="Test repo", private=False):
-        url = f"{self.api_url}/user/repos"
-        payload = {"name": repo_name, "description": description, "private": private}
-        resp = self.session.post(url, json=payload)
-        if resp.status_code == 201:
-            print(f"✅ Репозиторий '{repo_name}' успешно создан.")
-        elif resp.status_code == 422 and "already exists" in resp.text:
-            print(f"⚠️ Репозиторий '{repo_name}' уже существует.")
-        else:
-            raise Exception(f"Ошибка создания репозитория: {resp.status_code} {resp.text}")
 
-    def repo_exists(self, repo_name):
-        url = f"{self.api_url}/repos/{self.user}/{repo_name}"
-        resp = self.session.get(url)
-        return resp.status_code == 200
+def test_create_repo():
+    load_dotenv()
 
-    def delete_repo(self, repo_name):
-        url = f"{self.api_url}/repos/{self.user}/{repo_name}"
-        resp = self.session.delete(url)
-        if resp.status_code == 204:
-            print(f"🗑️ Репозиторий '{repo_name}' удалён.")
-        elif resp.status_code == 404:
-            print(f"⚠️ Репозиторий '{repo_name}' не найден.")
-        else:
-            raise Exception(f"Ошибка удаления репозитория: {resp.status_code} {resp.text}")
-
-if __name__ == "__main__":
+    GITHUB_API = "https://api.github.com"
     USER = os.getenv("GITHUB_USER")
     TOKEN = os.getenv("GITHUB_TOKEN")
     REPO = os.getenv("REPO_NAME")
 
-    manager = GitHubRepoManager(USER, TOKEN)
-    manager.create_repo(REPO)
-    if manager.repo_exists(REPO):
-        print("🔍 Репозиторий найден на GitHub.")
+    url = f"{GITHUB_API}/user/repos"
+    payload = {"name": REPO, "description": "Test repo", "private": False}
+    resp = requests.post(url, json=payload, auth=(USER, TOKEN))
+    # Обработка возможной ошибки: репозиторий уже существует
+    if resp.status_code == 201:
+        print("✅ Репозиторий создан.")
+    elif resp.status_code == 422 and 'already exists' in resp.text:
+        print("ℹ️ Репозиторий уже существует.")
     else:
-        print("❌ Репозиторий не найден на GitHub.")
-    manager.delete_repo(REPO)
+        raise Exception(f"Не удалось создать репозиторий: {resp.status_code} {resp.text}")
+    time.sleep(10)
+
+def test_list_repos():
+    load_dotenv()
+
+    GITHUB_API = "https://api.github.com"
+    USER = os.getenv("GITHUB_USER")
+    TOKEN = os.getenv("GITHUB_TOKEN")
+    REPO = os.getenv("REPO_NAME")
+
+
+    url = f"{GITHUB_API}/user/repos"
+    resp = requests.get(url, auth=(USER, TOKEN))
+    assert resp.status_code == 200, f"Не удалось получить список: {resp.text}"
+    names = [r["name"] for r in resp.json()]
+    assert REPO in names, "Репозиторий не найден в списке"
+    print("✅ Репозиторий найден в списке.")
+
+
+def test_delete_repo():
+    load_dotenv()
+
+    GITHUB_API = "https://api.github.com"
+    USER = os.getenv("GITHUB_USER")
+    TOKEN = os.getenv("GITHUB_TOKEN")
+    REPO = os.getenv("REPO_NAME")
+
+    url = f"{GITHUB_API}/repos/{USER}/{REPO}"
+    resp = requests.delete(url, auth=(USER, TOKEN))
+    assert resp.status_code == 204, f"Не удалось удалить репозиторий: {resp.text}"
+    print("✅ Репозиторий удален.")
+
+
+if __name__ == "__main__":
+    test_create_repo()
+    test_list_repos()
+    test_delete_repo()
